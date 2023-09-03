@@ -1,0 +1,26 @@
+[package]
+name = "h3o-ice"
+version = "0.1.0"
+authors = ["Sylvain Laperche <sylvain.laperche@gmail.com>"]
+edition = "2021"
+description = "Frozen{Map,Set} for H3 cells, based on finite state transducers."
+documentation = "https://docs.rs/h3o-ice/"
+readme = "README.md"
+homepage = "https://docs.rs/h3o-ice"
+repository = "https://github.com/HydroniumLabs/h3o-ice"
+license = "BSD-3-Clause"
+keywords = ["fst", "map", "set", "h3"]
+categories = ["data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[package.metadata.release]
+pre-release-commit-message = "release {{version}}"
+pre-release-replacements = [
+  {file="CHANGELOG.md", search="Unreleased", replace="{{version}}", min=1},
+  {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}", min=1},
+  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate\n", exactly=1},
+]
+
+[dependencies]
