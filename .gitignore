@@ -1,2 +1,4 @@
+/coverage
 /target
 /Cargo.lock
+/lcov*
