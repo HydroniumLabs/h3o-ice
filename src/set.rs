@@ -42,10 +42,18 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     }
 
     pub fn contains(&self, index: CellIndex) -> Option<CellIndex> {
-        Resolution::range(Resolution::Zero, index.resolution())
-            .rev()
-            .map(|res| index.parent(res).expect("valid res"))
-            .find(|&index| self.0.contains(Key::from(index)))
+        let fst = self.0.as_fst();
+        let key = Key::from(index);
+
+        let mut node = fst.root();
+        for (i, b) in key.as_ref().iter().enumerate() {
+            let idx = node.find_input(*b)?;
+            node = fst.node(node.transition_addr(idx));
+            if node.is_final() {
+                return Some(Key::from(&key.as_ref()[..=i]).into());
+            }
+        }
+        None
     }
 
     pub fn iter(&self) -> FrozenSetIterator<'_> {
