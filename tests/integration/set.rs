@@ -1,4 +1,5 @@
-use h3o::{CellIndex, Resolution};
+use crate::cell_index;
+use h3o::Resolution;
 use h3o_ice::{FrozenSet, FrozenSetBuilder};
 use std::{error::Error, io::Cursor};
 
@@ -8,18 +9,14 @@ fn len() {
         .expect("failed to create set");
     assert_eq!(empty.len(), 0, "empty set");
 
-    let single = FrozenSet::try_from_iter(std::iter::once(
-        CellIndex::try_from(0x85318d83fffffff).expect("invalid cell"),
-    ))
+    let single = FrozenSet::try_from_iter(std::iter::once(cell_index!(
+        0x8a1fb46622dffff
+    )))
     .expect("failed to create set");
     assert_eq!(single.len(), 1, "single element");
 
-    let multiple = FrozenSet::try_from_iter(
-        CellIndex::try_from(0x85318d83fffffff)
-            .expect("invalid cell")
-            .children(Resolution::Seven),
-    )
-    .expect("failed to create set");
+    let multiple =
+        FrozenSet::try_from_iter(test_cells()).expect("failed to create set");
     assert_eq!(multiple.len(), 49, "multiple elements");
 }
 
@@ -29,52 +26,49 @@ fn is_empty() {
         .expect("failed to create set");
     assert!(empty.is_empty(), "empty set");
 
-    let single = FrozenSet::try_from_iter(std::iter::once(
-        CellIndex::try_from(0x85318d83fffffff).expect("invalid cell"),
-    ))
+    let single = FrozenSet::try_from_iter(std::iter::once(cell_index!(
+        0x8a1fb46622dffff
+    )))
     .expect("failed to create set");
     assert!(!single.is_empty(), "single element");
 }
 
 #[test]
 fn contains() {
-    let cell = CellIndex::try_from(0x85318d83fffffff).expect("invalid cell");
-    let child = CellIndex::try_from(0x86318d837ffffff).expect("invalid cell");
-    let descendant =
-        CellIndex::try_from(0x89318d8368bffff).expect("invalid cell");
+    let cell = cell_index!(0x8a1fb46622dffff);
+    let child = cell_index!(0x8b1fb46622d8fff);
+    let descendant = cell_index!(0x8d1fb46622d85bf);
     let set = FrozenSet::try_from_iter(std::iter::once(cell))
         .expect("failed to create set");
 
-    // Exact containment works.
+    // Exact membership works.
     assert_eq!(set.contains(cell), Some(cell), "exact match");
-    // Child containment works too.
+    // Child membership works too.
     assert_eq!(set.contains(child), Some(cell), "direct child");
     // Even through multiple levels.
     assert_eq!(set.contains(descendant), Some(cell), "descendant");
 
-    let not_related =
-        CellIndex::try_from(0x85283473fffffff).expect("invalid cell");
+    let not_related = cell_index!(0x85283473fffffff);
     assert!(set.contains(not_related).is_none(), "not related");
 }
 
 #[test]
 fn load_from_bytes() {
+    // Build set in memory.
     let mut builder = FrozenSetBuilder::memory();
     builder
-        .insert(CellIndex::try_from(0x85283473fffffff).expect("invalid cell"))
+        .insert(cell_index!(0x85283473fffffff))
         .expect("failed to insert");
-    builder
-        .extend_iter(
-            CellIndex::try_from(0x85318d83fffffff)
-                .expect("invalid cell")
-                .children(Resolution::Seven),
-        )
-        .expect("failed to extend");
+    builder.extend_iter(test_cells()).expect("failed to extend");
     let expected = builder.into_set();
+
+    // Get the underlying bytes.
     let bytes = expected.as_bytes();
 
+    // Rebuild the set from thoses bytes.
     let result = FrozenSet::new(bytes).expect("valid set");
 
+    // Data is exactly the same.
     assert_eq!(
         expected.iter().collect::<Vec<_>>(),
         result.iter().collect::<Vec<_>>()
@@ -86,27 +80,29 @@ fn io_build() {
     let buffer = Cursor::new(Vec::new());
     let mut builder = FrozenSetBuilder::new(buffer).expect("builder");
     builder
-        .insert(CellIndex::try_from(0x85283473fffffff).expect("invalid cell"))
+        .insert(cell_index!(0x85283473fffffff))
         .expect("failed to insert");
-    builder
-        .extend_iter(
-            CellIndex::try_from(0x85318d83fffffff)
-                .expect("invalid cell")
-                .children(Resolution::Seven),
-        )
-        .expect("failed to extend");
+    builder.extend_iter(test_cells()).expect("failed to extend");
     builder.finish().expect("flushing set");
 }
 
 #[test]
 fn wrong_order() {
-    let cell1 = CellIndex::try_from(0x85318d83fffffff).expect("invalid cell");
-    let cell2 = CellIndex::try_from(0x85283473fffffff).expect("invalid cell");
-
+    // Building set from non-sorted input fails.
     let mut builder = FrozenSetBuilder::memory();
-    builder.insert(cell1).expect("failed to insert");
-    let err = builder.insert(cell2).expect_err("inserted out of order");
+    builder
+        .insert(cell_index!(0x85318d83fffffff))
+        .expect("failed to insert");
+    let err = builder
+        .insert(cell_index!(0x85283473fffffff))
+        .expect_err("inserted out of order");
 
     assert!(err.source().is_some(), "preserve root cause");
     assert!(!err.to_string().is_empty(), "non-empty error");
+}
+
+// -----------------------------------------------------------------------------
+
+fn test_cells() -> impl Iterator<Item = h3o::CellIndex> {
+    cell_index!(0x85318d83fffffff).children(Resolution::Seven)
 }

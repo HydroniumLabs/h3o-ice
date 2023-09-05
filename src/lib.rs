@@ -120,9 +120,14 @@
 
 mod error;
 mod key;
+mod map;
 mod set;
 
 pub use error::BuildError;
+pub use map::{
+    FrozenMap, FrozenMapBuilder, FrozenMapIterator, FrozenMapKeys,
+    FrozenMapValues,
+};
 pub use set::{FrozenSet, FrozenSetBuilder, FrozenSetIterator};
 
 use key::Key;
