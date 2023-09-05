@@ -10,16 +10,16 @@ pub enum BuildError {
 
 impl fmt::Display for BuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Fst(err) => write!(f, "FST error: {err}"),
+        match *self {
+            Self::Fst(ref err) => write!(f, "FST error: {err}"),
         }
     }
 }
 
 impl Error for BuildError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            BuildError::Fst(err) => Some(err),
+        match *self {
+            Self::Fst(ref err) => Some(err),
         }
     }
 }

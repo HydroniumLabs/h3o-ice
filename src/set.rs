@@ -1,6 +1,6 @@
 use crate::{BuildError, Key};
 use fst::{set::Stream, Set, SetBuilder, Streamer};
-use h3o::{CellIndex, Resolution};
+use h3o::CellIndex;
 use std::io;
 
 /// A read-only set of H3 cell indexes.
@@ -14,17 +14,11 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     /// a valid set. While memory safety will not be violated by invalid input,
     /// a panic could occur while reading the set at any point.
     ///
-    /// # Example
+    /// # Errors
     ///
-    /// ```no_run
-    /// use h3o_ice::FrozenSet;
-    ///
-    /// let bytes = [
-    ///     // ...
-    /// ];
-    ///
-    /// let set = FrozenSet::new(bytes).expect("valid set");
-    /// ```
+    /// The set must have been written with a compatible builder. If the format
+    /// is invalid or if there is a mismatch between the API version of this
+    /// library and the set, then an error is returned.
     pub fn new(data: D) -> Result<Self, BuildError> {
         Ok(Set::new(data).map(Self)?)
     }
@@ -41,6 +35,9 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
         self.0.is_empty()
     }
 
+    /// Tests the membership of a single H3 cell index.
+    ///
+    /// Returns true if the cell index or one of its ancestor is present.
     pub fn contains(&self, index: CellIndex) -> Option<CellIndex> {
         let fst = self.0.as_fst();
         let key = Key::from(index);
@@ -56,6 +53,8 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
         None
     }
 
+    /// Return a lexicographically ordered stream of all cells in this set.
+    #[must_use]
     pub fn iter(&self) -> FrozenSetIterator<'_> {
         FrozenSetIterator::new(self)
     }
@@ -64,21 +63,24 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
 impl FrozenSet<Vec<u8>> {
     /// Create a `FrozenSet` from an iterator of ordered H3 cell indexes.
     ///
-    /// If the iterator does not yield values in lexicographic order, then an
-    /// error is returned.
-    ///
     /// Note that this is a convenience function to build a set in memory.
     /// To build a set that streams to an arbitrary `io::Write`, use
     /// `FrozenSetBuilder`.
+    ///
+    /// # Errors
+    ///
+    /// If the iterator does not yield values in lexicographic order, then an
+    /// error is returned.
     pub fn try_from_iter(
         iter: impl IntoIterator<Item = CellIndex>,
-    ) -> Result<FrozenSet<Vec<u8>>, BuildError> {
+    ) -> Result<Self, BuildError> {
         let mut builder = FrozenSetBuilder::memory();
         builder.extend_iter(iter)?;
-        FrozenSet::new(builder.into_inner()?)
+        Self::new(builder.into_inner()?)
     }
 
     /// Returns the binary contents of this set.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_fst().as_bytes()
     }
@@ -86,25 +88,37 @@ impl FrozenSet<Vec<u8>> {
 
 // ------------------------------------------------------------------------------
 
+/// A builder for creating a frozen set.
 pub struct FrozenSetBuilder<W>(SetBuilder<W>);
 
 impl<W: io::Write> FrozenSetBuilder<W> {
     /// Create a builder that builds a set by writing it to `wtr` in a
     /// streaming fashion.
-    pub fn new(wtr: W) -> Result<FrozenSetBuilder<W>, BuildError> {
+    ///
+    /// # Errors
+    ///
+    /// If there was a problem writing to the underlying writer, an error is
+    /// returned.
+    pub fn new(wtr: W) -> Result<Self, BuildError> {
         SetBuilder::new(wtr).map(Self).map_err(Into::into)
     }
 
     /// Insert a new cell index into the set.
     ///
+    /// # Errors
+    ///
     /// If a cell index is inserted that is less than any previous cell index
-    /// added, then an error is returned. Similarly, if there was a problem
-    /// writing to the underlying writer, an error is returned.
+    /// added, then an error is returned.
+    ///
+    /// Similarly, if there was a problem writing to the underlying writer, an
+    /// error is returned.
     pub fn insert(&mut self, index: CellIndex) -> Result<(), BuildError> {
         self.0.insert(Key::from(index)).map_err(Into::into)
     }
 
     /// Calls insert on each cell index in the iterator.
+    ///
+    /// # Errors
     ///
     /// If an error occurred while adding an element, processing is stopped
     /// and the error is returned.
@@ -120,12 +134,22 @@ impl<W: io::Write> FrozenSetBuilder<W> {
     /// Finishes the construction of the set and flushes the underlying
     /// writer. After completion, the data written to `W` may be read using
     /// one of `FrozenSet`'s constructor methods.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there was a problem writing to the underlying
+    /// writer.
     pub fn finish(self) -> Result<(), BuildError> {
         self.0.finish().map_err(Into::into)
     }
 
     /// Just like `finish`, except it returns the underlying writer after
     /// flushing it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there was a problem writing to the underlying
+    /// writer.
     pub fn into_inner(self) -> Result<W, BuildError> {
         self.0.into_inner().map_err(Into::into)
     }
@@ -134,12 +158,14 @@ impl<W: io::Write> FrozenSetBuilder<W> {
 impl FrozenSetBuilder<Vec<u8>> {
     /// Create a builder that builds a set in memory.
     #[inline]
+    #[must_use]
     pub fn memory() -> Self {
         Self(SetBuilder::memory())
     }
 
     /// Finishes the construction of the set and returns it.
     #[inline]
+    #[must_use]
     pub fn into_set(self) -> FrozenSet<Vec<u8>> {
         FrozenSet(self.0.into_set())
     }
@@ -155,7 +181,7 @@ pub struct FrozenSetIterator<'a> {
 }
 
 impl<'a> FrozenSetIterator<'a> {
-    pub fn new<D>(set: &'a FrozenSet<D>) -> Self
+    fn new<D>(set: &'a FrozenSet<D>) -> Self
     where
         D: AsRef<[u8]>,
     {
