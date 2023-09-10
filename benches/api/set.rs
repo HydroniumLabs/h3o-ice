@@ -1,17 +1,15 @@
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion,
-};
+use super::utils::load_dataset;
+use criterion::{black_box, BenchmarkId, Criterion};
 use h3o::{CellIndex, Resolution};
 use h3o_ice::FrozenSet;
-use std::path::PathBuf;
 
-fn build(c: &mut Criterion) {
+pub fn build(c: &mut Criterion) {
     let compacted = load_dataset("Paris");
     let expanded =
         CellIndex::uncompact(compacted.iter().copied(), Resolution::Ten)
             .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Build");
+    let mut group = c.benchmark_group("Set/Build");
     group.bench_function("Expanded", |b| {
         b.iter(|| FrozenSet::try_from_iter(black_box(expanded.iter().copied())))
     });
@@ -23,7 +21,7 @@ fn build(c: &mut Criterion) {
     group.finish();
 }
 
-fn lookup(c: &mut Criterion) {
+pub fn contains(c: &mut Criterion) {
     let dataset = load_dataset("France");
     let compacted = FrozenSet::try_from_iter(dataset.iter().copied())
         .expect("compacted set");
@@ -47,7 +45,7 @@ fn lookup(c: &mut Criterion) {
     .map(|&hex| CellIndex::try_from(hex).expect("valid cell index"))
     .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Lookup");
+    let mut group = c.benchmark_group("Set/Contains");
     for (i, cell) in cells.iter().enumerate() {
         group.bench_with_input(
             BenchmarkId::new("Expanded", i),
@@ -63,7 +61,7 @@ fn lookup(c: &mut Criterion) {
     group.finish();
 }
 
-fn range(c: &mut Criterion) {
+pub fn range(c: &mut Criterion) {
     let dataset = load_dataset("France");
     let expanded = FrozenSet::try_from_iter(CellIndex::uncompact(
         dataset,
@@ -85,25 +83,11 @@ fn range(c: &mut Criterion) {
     .map(|&hex| CellIndex::try_from(hex).expect("valid cell index"))
     .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Range");
+    let mut group = c.benchmark_group("Set/Range");
     for (i, cell) in cells.iter().enumerate() {
         group.bench_with_input(i.to_string(), cell, |b, cell| {
             b.iter(|| expanded.descendants(*cell).for_each(drop))
         });
     }
     group.finish();
-}
-
-criterion_group!(benches, build, lookup, range);
-criterion_main!(benches);
-
-pub fn load_dataset(name: &str) -> Vec<h3o::CellIndex> {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let filepath = format!("dataset/{name}.thc");
-    path.push(filepath);
-
-    let bytes = std::fs::read(path).expect("read test data");
-    thc::decompress(&bytes)
-        .collect::<Result<_, _>>()
-        .expect("unpack test data")
 }
