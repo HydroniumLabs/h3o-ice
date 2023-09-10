@@ -208,6 +208,31 @@ fn range() {
     assert_eq!(result, expected, "RangeToInclusive");
 }
 
+#[test]
+fn descendants() {
+    let set = FrozenSet::try_from_iter(
+        cell_index!(0x85318d83fffffff)
+            .children(Resolution::Six)
+            .chain(cell_index!(0x85318d93fffffff).children(Resolution::Six)),
+    )
+    .expect("failed to create set");
+
+    let result = set.descendants(cell_index!(0x8f318d831000000)).count();
+    assert_eq!(result, 0, "lowest level");
+
+    let result = set.descendants(cell_index!(0x87318d831ffffff)).count();
+    assert_eq!(result, 0, "lower level");
+
+    let result = set.descendants(cell_index!(0x86318d837ffffff)).count();
+    assert_eq!(result, 0, "same level");
+
+    let result = set.descendants(cell_index!(0x85318d83fffffff)).count();
+    assert_eq!(result, 7, "parent");
+
+    let result = set.descendants(cell_index!(0x84318d9ffffffff)).count();
+    assert_eq!(result, 14, "grand-parent");
+}
+
 // -----------------------------------------------------------------------------
 
 fn test_cells() -> impl Iterator<Item = h3o::CellIndex> {
