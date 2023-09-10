@@ -1,7 +1,7 @@
 use crate::cell_index;
-use h3o::Resolution;
+use h3o::{CellIndex, Resolution};
 use h3o_ice::{FrozenMap, FrozenMapBuilder};
-use std::{error::Error, io::Cursor};
+use std::{error::Error, io::Cursor, ops::Bound};
 
 #[test]
 fn len() {
@@ -138,6 +138,116 @@ fn wrong_order() {
 
     assert!(err.source().is_some(), "preserve root cause");
     assert!(!err.to_string().is_empty(), "non-empty error");
+}
+
+#[test]
+fn range() {
+    let map = FrozenMap::try_from_iter(
+        cell_index!(0x85318d83fffffff)
+            .children(Resolution::Six)
+            .enumerate()
+            .map(|(idx, cell)| (cell, idx as u64)),
+    )
+    .expect("failed to create map");
+
+    // A (half-open) range bounded inclusively below and exclusively above.
+    let result = map
+        .range((
+            Bound::Included(cell_index!(0x86318d817ffffff)),
+            Bound::Excluded(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        (cell_index!(0x86318d817ffffff), 2),
+        (cell_index!(0x86318d81fffffff), 3),
+    ];
+    assert_eq!(result, expected, "Range");
+
+    // An open range bounded exclusively below and above.
+    let result = map
+        .range((
+            Bound::Excluded(cell_index!(0x86318d817ffffff)),
+            Bound::Excluded(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![(cell_index!(0x86318d81fffffff), 3)];
+    assert_eq!(result, expected, "RangeOpen");
+
+    // A range only bounded inclusively below.
+    let result = map
+        .range((
+            Bound::Included(cell_index!(0x86318d817ffffff)),
+            Bound::Unbounded,
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        (cell_index!(0x86318d817ffffff), 2),
+        (cell_index!(0x86318d81fffffff), 3),
+        (cell_index!(0x86318d827ffffff), 4),
+        (cell_index!(0x86318d82fffffff), 5),
+        (cell_index!(0x86318d837ffffff), 6),
+    ];
+    assert_eq!(result, expected, "RangeFrom");
+
+    // An unbounded range.
+    let result = map
+        .range((Bound::<CellIndex>::Unbounded, Bound::Unbounded))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        (cell_index!(0x86318d807ffffff), 0),
+        (cell_index!(0x86318d80fffffff), 1),
+        (cell_index!(0x86318d817ffffff), 2),
+        (cell_index!(0x86318d81fffffff), 3),
+        (cell_index!(0x86318d827ffffff), 4),
+        (cell_index!(0x86318d82fffffff), 5),
+        (cell_index!(0x86318d837ffffff), 6),
+    ];
+    assert_eq!(result, expected, "RangeFull");
+
+    // A range bounded inclusively below and above.
+    let result = map
+        .range((
+            Bound::Included(cell_index!(0x86318d817ffffff)),
+            Bound::Included(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        (cell_index!(0x86318d817ffffff), 2),
+        (cell_index!(0x86318d81fffffff), 3),
+        (cell_index!(0x86318d827ffffff), 4),
+    ];
+    assert_eq!(result, expected, "RangeInclusive");
+
+    // A range only bounded exclusively above.
+    let result = map
+        .range((
+            Bound::Unbounded,
+            Bound::Excluded(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        (cell_index!(0x86318d807ffffff), 0),
+        (cell_index!(0x86318d80fffffff), 1),
+        (cell_index!(0x86318d817ffffff), 2),
+        (cell_index!(0x86318d81fffffff), 3),
+    ];
+    assert_eq!(result, expected, "RangeTo");
+
+    // A range only bounded inclusively above.
+    let result = map
+        .range((
+            Bound::Unbounded,
+            Bound::Included(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        (cell_index!(0x86318d807ffffff), 0),
+        (cell_index!(0x86318d80fffffff), 1),
+        (cell_index!(0x86318d817ffffff), 2),
+        (cell_index!(0x86318d81fffffff), 3),
+        (cell_index!(0x86318d827ffffff), 4),
+    ];
+    assert_eq!(result, expected, "RangeToInclusive");
 }
 
 // -----------------------------------------------------------------------------

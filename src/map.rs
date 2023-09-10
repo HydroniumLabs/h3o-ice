@@ -1,11 +1,15 @@
 use crate::{BuildError, Key};
+use either::Either;
 use fst::{
     map::{Keys, Stream, Values},
     raw::Output,
-    Map, MapBuilder, Streamer,
+    IntoStreamer, Map, MapBuilder, Streamer,
 };
 use h3o::CellIndex;
-use std::io;
+use std::{
+    io,
+    ops::{Bound, RangeBounds},
+};
 
 /// A read-only map of H3 cell indexes.
 pub struct FrozenMap<D>(Map<D>);
@@ -97,6 +101,31 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
     /// each value's corresponding key.
     pub fn values(&self) -> FrozenMapValues<'_> {
         FrozenMapValues::new(self)
+    }
+
+    /// Return a lexicographically ordered stream of key-value pairs in the
+    /// specified key range.
+    pub fn range(
+        &self,
+        range: impl RangeBounds<CellIndex>,
+    ) -> impl Iterator<Item = (CellIndex, u64)> + '_ {
+        let (start, end) = (range.start_bound(), range.end_bound());
+
+        if matches!((start, end), (Bound::Unbounded, Bound::Unbounded)) {
+            return Either::Left(self.iter());
+        }
+        let builder = self.0.range();
+        let builder = match start {
+            Bound::Included(lower) => builder.ge(Key::from(*lower)),
+            Bound::Excluded(lower) => builder.gt(Key::from(*lower)),
+            Bound::Unbounded => builder,
+        };
+        let builder = match end {
+            Bound::Included(upper) => builder.le(Key::from(*upper)),
+            Bound::Excluded(upper) => builder.lt(Key::from(*upper)),
+            Bound::Unbounded => builder,
+        };
+        Either::Right(FrozenMapRangeIterator::new(builder.into_stream()))
     }
 }
 
@@ -349,5 +378,28 @@ impl ExactSizeIterator for FrozenMapValues<'_> {
     // We can easily calculate the remaining number of iterations.
     fn len(&self) -> usize {
         self.len - self.count
+    }
+}
+
+// ------------------------------------------------------------------------------
+
+/// An iterator over a subset of key-value pairs in a specified range of keys.
+struct FrozenMapRangeIterator<'a> {
+    stream: Stream<'a>,
+}
+
+impl<'a> FrozenMapRangeIterator<'a> {
+    const fn new(stream: Stream<'a>) -> Self {
+        Self { stream }
+    }
+}
+
+impl Iterator for FrozenMapRangeIterator<'_> {
+    type Item = (CellIndex, u64);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stream
+            .next()
+            .map(|(key, value)| (Key::from(key).into(), value))
     }
 }
