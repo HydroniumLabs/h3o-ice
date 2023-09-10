@@ -1,7 +1,11 @@
 use crate::{BuildError, Key};
-use fst::{set::Stream, Set, SetBuilder, Streamer};
+use either::Either;
+use fst::{set::Stream, IntoStreamer, Set, SetBuilder, Streamer};
 use h3o::CellIndex;
-use std::io;
+use std::{
+    io,
+    ops::{Bound, RangeBounds},
+};
 
 /// A read-only set of H3 cell indexes.
 pub struct FrozenSet<D>(Set<D>);
@@ -57,6 +61,31 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     #[must_use]
     pub fn iter(&self) -> FrozenSetIterator<'_> {
         FrozenSetIterator::new(self)
+    }
+
+    /// Return a lexicographically ordered stream over the subset of keys the
+    /// specified range.
+    pub fn range(
+        &self,
+        range: impl RangeBounds<CellIndex>,
+    ) -> impl Iterator<Item = CellIndex> + '_ {
+        let (start, end) = (range.start_bound(), range.end_bound());
+
+        if matches!((start, end), (Bound::Unbounded, Bound::Unbounded)) {
+            return Either::Left(self.iter());
+        }
+        let builder = self.0.range();
+        let builder = match start {
+            Bound::Included(lower) => builder.ge(Key::from(*lower)),
+            Bound::Excluded(lower) => builder.gt(Key::from(*lower)),
+            Bound::Unbounded => builder,
+        };
+        let builder = match end {
+            Bound::Included(upper) => builder.le(Key::from(*upper)),
+            Bound::Excluded(upper) => builder.lt(Key::from(*upper)),
+            Bound::Unbounded => builder,
+        };
+        Either::Right(FrozenSetRangeIterator::new(builder.into_stream()))
     }
 }
 
@@ -173,7 +202,7 @@ impl FrozenSetBuilder<Vec<u8>> {
 
 // ------------------------------------------------------------------------------
 
-/// An iterator which counts from one to five
+/// An iterator over the every value of the set.
 pub struct FrozenSetIterator<'a> {
     stream: Stream<'a>,
     len: usize,
@@ -212,5 +241,26 @@ impl ExactSizeIterator for FrozenSetIterator<'_> {
     // We can easily calculate the remaining number of iterations.
     fn len(&self) -> usize {
         self.len - self.count
+    }
+}
+
+// ------------------------------------------------------------------------------
+
+/// An iterator over a subset of keys in a specified range.
+struct FrozenSetRangeIterator<'a> {
+    stream: Stream<'a>,
+}
+
+impl<'a> FrozenSetRangeIterator<'a> {
+    const fn new(stream: Stream<'a>) -> Self {
+        Self { stream }
+    }
+}
+
+impl Iterator for FrozenSetRangeIterator<'_> {
+    type Item = CellIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stream.next().map(|key| Key::from(key).into())
     }
 }

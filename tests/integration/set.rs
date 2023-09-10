@@ -1,7 +1,7 @@
 use crate::cell_index;
-use h3o::Resolution;
+use h3o::{CellIndex, Resolution};
 use h3o_ice::{FrozenSet, FrozenSetBuilder};
-use std::{error::Error, io::Cursor};
+use std::{error::Error, io::Cursor, ops::Bound};
 
 #[test]
 fn len() {
@@ -99,6 +99,113 @@ fn wrong_order() {
 
     assert!(err.source().is_some(), "preserve root cause");
     assert!(!err.to_string().is_empty(), "non-empty error");
+}
+
+#[test]
+fn range() {
+    let set = FrozenSet::try_from_iter(
+        cell_index!(0x85318d83fffffff).children(Resolution::Six),
+    )
+    .expect("failed to create set");
+
+    // A (half-open) range bounded inclusively below and exclusively above.
+    let result = set
+        .range((
+            Bound::Included(cell_index!(0x86318d817ffffff)),
+            Bound::Excluded(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        cell_index!(0x86318d817ffffff),
+        cell_index!(0x86318d81fffffff),
+    ];
+    assert_eq!(result, expected, "Range");
+
+    // An open range bounded exclusively below and above.
+    let result = set
+        .range((
+            Bound::Excluded(cell_index!(0x86318d817ffffff)),
+            Bound::Excluded(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![cell_index!(0x86318d81fffffff)];
+    assert_eq!(result, expected, "RangeOpen");
+
+    // A range only bounded inclusively below.
+    let result = set
+        .range((
+            Bound::Included(cell_index!(0x86318d817ffffff)),
+            Bound::Unbounded,
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        cell_index!(0x86318d817ffffff),
+        cell_index!(0x86318d81fffffff),
+        cell_index!(0x86318d827ffffff),
+        cell_index!(0x86318d82fffffff),
+        cell_index!(0x86318d837ffffff),
+    ];
+    assert_eq!(result, expected, "RangeFrom");
+
+    // An unbounded range.
+    let result = set
+        .range((Bound::<CellIndex>::Unbounded, Bound::Unbounded))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        cell_index!(0x86318d807ffffff),
+        cell_index!(0x86318d80fffffff),
+        cell_index!(0x86318d817ffffff),
+        cell_index!(0x86318d81fffffff),
+        cell_index!(0x86318d827ffffff),
+        cell_index!(0x86318d82fffffff),
+        cell_index!(0x86318d837ffffff),
+    ];
+    assert_eq!(result, expected, "RangeFull");
+
+    // A range bounded inclusively below and above.
+    let result = set
+        .range((
+            Bound::Included(cell_index!(0x86318d817ffffff)),
+            Bound::Included(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        cell_index!(0x86318d817ffffff),
+        cell_index!(0x86318d81fffffff),
+        cell_index!(0x86318d827ffffff),
+    ];
+    assert_eq!(result, expected, "RangeInclusive");
+
+    // A range only bounded exclusively above.
+    let result = set
+        .range((
+            Bound::Unbounded,
+            Bound::Excluded(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        cell_index!(0x86318d807ffffff),
+        cell_index!(0x86318d80fffffff),
+        cell_index!(0x86318d817ffffff),
+        cell_index!(0x86318d81fffffff),
+    ];
+    assert_eq!(result, expected, "RangeTo");
+
+    // A range only bounded inclusively above.
+    let result = set
+        .range((
+            Bound::Unbounded,
+            Bound::Included(cell_index!(0x86318d827ffffff)),
+        ))
+        .collect::<Vec<_>>();
+    let expected = vec![
+        cell_index!(0x86318d807ffffff),
+        cell_index!(0x86318d80fffffff),
+        cell_index!(0x86318d817ffffff),
+        cell_index!(0x86318d81fffffff),
+        cell_index!(0x86318d827ffffff),
+    ];
+    assert_eq!(result, expected, "RangeToInclusive");
 }
 
 // -----------------------------------------------------------------------------

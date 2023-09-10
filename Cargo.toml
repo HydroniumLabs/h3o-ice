@@ -24,6 +24,7 @@ pre-release-replacements = [
 ]
 
 [dependencies]
+either = { version = "1.0", default-features = false }
 h3o = { version = "0.4", default-features = false }
 fst = { version = "0.4", default-features = false }
 
