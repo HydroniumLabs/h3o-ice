@@ -19,6 +19,22 @@ This is especially for read-only indexes (both in-memory or on-disk).
   [this](https://www.rust-lang.org/tools/install) guide.
 * run `cargo install h3o-ice`
 
+## Usage
+
+```rust
+use h3o::{LatLng, Resolution};
+use h3o_ice::FrozenSet;
+
+let coord = LatLng::new(48.872280706 2.332697839).expect("valid coord");
+let set = FrozenSet::try_from_iter(
+    coord.to_cell(Resolution::Nine)
+        .children(Resolution::Ten)
+)
+.expect("failed to create set");
+
+set.contains(CellIndex::try_from(0x8a1fb4666417fff).expect("valid cell"));
+```
+
 ## License
 
 [BSD 3-Clause](./LICENSE)

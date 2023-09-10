@@ -27,17 +27,56 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
     /// The mapmust have been written with a compatible builder. If the format
     /// is invalid or if there is a mismatch between the API version of this
     /// library and the map, then an error is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use h3o_ice::FrozenMap;
+    /// use std::fs;
+    ///
+    /// # let file_path = "";
+    /// let bytes = fs::read_to_string(file_path)?;
+    /// let map = FrozenMap::new(bytes);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn new(data: D) -> Result<Self, BuildError> {
         Ok(Map::new(data).map(Self)?)
     }
 
     /// Returns the number of elements in this map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let map = FrozenMap::try_from_iter(std::iter::once((index, 42)))?;
+    /// assert_eq!(map.len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Returns true if and only if this map is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let map = FrozenMap::try_from_iter(std::iter::empty())?;
+    /// assert!(map.is_empty());
+    ///
+    /// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let map = FrozenMap::try_from_iter(std::iter::once((index, 42)))?;
+    /// assert!(!map.is_empty());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -45,7 +84,28 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
 
     /// Tests the membership of a single H3 cell index.
     ///
+    /// # Examples
+    ///
     /// Returns true if the cell index or one of its ancestor is present.
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let cell = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let map = FrozenMap::try_from_iter(std::iter::once((cell, 42)))?;
+    ///
+    /// // Exact membership works.
+    /// assert_eq!(map.contains_key(cell), Some(cell));
+    ///
+    /// // Child membership works too.
+    /// let child = CellIndex::try_from(0x8b1fb46622d8fff)?;
+    /// assert_eq!(map.contains_key(child), Some(cell));
+    ///
+    /// // Even through multiple levels.
+    /// let descendant = CellIndex::try_from(0x8d1fb46622d85bf)?;
+    /// assert_eq!(map.contains_key(descendant), Some(cell));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn contains_key(&self, index: CellIndex) -> Option<CellIndex> {
         let fst = self.0.as_fst();
         let key = Key::from(index);
@@ -65,6 +125,29 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
     ///
     /// If the cell index and none of its ancestor exist, then `None` is
     /// returned.
+    ///
+    /// # Examples
+    ///
+    /// Returns true if the cell index or one of its ancestor is present.
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let cell = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let map = FrozenMap::try_from_iter(std::iter::once((cell, 42)))?;
+    ///
+    /// // Exact membership works.
+    /// assert_eq!(map.get(cell), Some((cell, 42)));
+    ///
+    /// // Child membership works too.
+    /// let child = CellIndex::try_from(0x8b1fb46622d8fff)?;
+    /// assert_eq!(map.get(child), Some((cell, 42)));
+    ///
+    /// // Even through multiple levels.
+    /// let descendant = CellIndex::try_from(0x8d1fb46622d85bf)?;
+    /// assert_eq!(map.get(descendant), Some((cell, 42)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn get(&self, index: CellIndex) -> Option<(CellIndex, u64)> {
         let fst = self.0.as_fst();
         let key = Key::from(index);
@@ -88,6 +171,26 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
 
     /// Return a lexicographically ordered stream of every key-value (present
     /// in the map) that descend from the given cell index.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let map = FrozenMap::try_from_iter(
+    ///     index
+    ///         .children(Resolution::Six)
+    ///         .enumerate()
+    ///         .map(|(idx, cell)| (cell, idx as u64)),
+    /// )?;
+    ///
+    /// for (cell, value) in map.descendants(index) {
+    ///     println!("{cell} = {value}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[allow(clippy::missing_panics_doc)] // Expect don't need to be documented.
     pub fn descendants(
         &self,
@@ -109,23 +212,107 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
 
     /// Return a lexicographically ordered stream of all key-value pairs in this
     /// map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let map = FrozenMap::try_from_iter(
+    ///     index
+    ///         .children(Resolution::Six)
+    ///         .enumerate()
+    ///         .map(|(idx, cell)| (cell, idx as u64)),
+    /// )?;
+    ///
+    /// for (cell, value) in map.iter() {
+    ///     println!("{cell} = {value}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn iter(&self) -> FrozenMapIterator<'_> {
         FrozenMapIterator::new(self)
     }
 
     /// Return a lexicographically ordered stream of all cells in this map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let map = FrozenMap::try_from_iter(
+    ///     index
+    ///         .children(Resolution::Six)
+    ///         .enumerate()
+    ///         .map(|(idx, cell)| (cell, idx as u64)),
+    /// )?;
+    ///
+    /// for cell in map.keys() {
+    ///     println!("{cell}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn keys(&self) -> FrozenMapKeys<'_> {
         FrozenMapKeys::new(self)
     }
 
     /// Return a stream of all values in this map ordered lexicographically by
     /// each value's corresponding key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let map = FrozenMap::try_from_iter(
+    ///     index
+    ///         .children(Resolution::Six)
+    ///         .enumerate()
+    ///         .map(|(idx, cell)| (cell, idx as u64)),
+    /// )?;
+    ///
+    /// for value in map.values() {
+    ///     println!("{value}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn values(&self) -> FrozenMapValues<'_> {
         FrozenMapValues::new(self)
     }
 
     /// Return a lexicographically ordered stream of key-value pairs in the
     /// specified key range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenMap;
+    /// use std::ops::Bound;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let map = FrozenMap::try_from_iter(
+    ///     index
+    ///         .children(Resolution::Six)
+    ///         .enumerate()
+    ///         .map(|(idx, cell)| (cell, idx as u64)),
+    /// )?;
+    ///
+    /// let start = Bound::Included(CellIndex::try_from(0x86318d817ffffff)?);
+    /// let end = Bound::Excluded(CellIndex::try_from(0x86318d827ffffff)?);
+    ///
+    /// for (cell, value) in map.range((start, end)) {
+    ///     println!("{cell} = {value}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn range(
         &self,
         range: impl RangeBounds<CellIndex>,
@@ -162,6 +349,22 @@ impl FrozenMap<Vec<u8>> {
     ///
     /// If the iterator does not yield unique indexes in lexicographic order,
     /// then an error is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let map = FrozenMap::try_from_iter(
+    ///     index
+    ///         .children(Resolution::Six)
+    ///         .enumerate()
+    ///         .map(|(idx, cell)| (cell, idx as u64)),
+    /// )?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn try_from_iter(
         iter: impl IntoIterator<Item = (CellIndex, u64)>,
     ) -> Result<Self, BuildError> {
@@ -171,6 +374,19 @@ impl FrozenMap<Vec<u8>> {
     }
 
     /// Returns the binary contents of this map.
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenMap;
+    ///
+    /// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let map = FrozenMap::try_from_iter(std::iter::once((index, 42)))?;
+    ///
+    /// # let file_path = "";
+    /// std::fs::write(file_path, map.as_bytes())?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_fst().as_bytes()
@@ -180,6 +396,49 @@ impl FrozenMap<Vec<u8>> {
 // ------------------------------------------------------------------------------
 
 /// A builder for creating a frozen map.
+///
+/// # Example: build in memory
+///
+/// ```
+/// use h3o::{CellIndex, Resolution};
+/// use h3o_ice::FrozenMapBuilder;
+///
+/// let mut builder = FrozenMapBuilder::memory();
+/// builder.insert(CellIndex::try_from(0x85283473fffffff)?, 42)?;
+///
+/// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+/// builder.extend_iter(
+///     index
+///         .children(Resolution::Six)
+///         .enumerate()
+///         .map(|(idx, cell)| (cell, idx as u64)),
+/// )?;
+///
+/// let map = builder.into_map();
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+/// # Example: stream to file
+///
+/// ```no_run
+/// use h3o::{CellIndex, Resolution};
+/// use h3o_ice::FrozenMapBuilder;
+/// use std::{fs, io};
+///
+/// # let file_path = "";
+/// let mut wtr = io::BufWriter::new(fs::File::create(file_path)?);
+/// let mut builder = FrozenMapBuilder::new(wtr)?;
+///
+/// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+/// builder.extend_iter(
+///     index
+///         .children(Resolution::Six)
+///         .enumerate()
+///         .map(|(idx, cell)| (cell, idx as u64)),
+/// )?;
+///
+/// builder.finish()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct FrozenMapBuilder<W>(MapBuilder<W>);
 
 impl<W: io::Write> FrozenMapBuilder<W> {

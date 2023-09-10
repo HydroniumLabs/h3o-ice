@@ -23,17 +23,56 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     /// The set must have been written with a compatible builder. If the format
     /// is invalid or if there is a mismatch between the API version of this
     /// library and the set, then an error is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use h3o_ice::FrozenSet;
+    /// use std::fs;
+    ///
+    /// # let file_path = "";
+    /// let bytes = fs::read_to_string(file_path)?;
+    /// let set = FrozenSet::new(bytes);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn new(data: D) -> Result<Self, BuildError> {
         Ok(Set::new(data).map(Self)?)
     }
 
     /// Returns the number of elements in this set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let set = FrozenSet::try_from_iter(std::iter::once(index))?;
+    /// assert_eq!(set.len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Returns true if and only if this set is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let set = FrozenSet::try_from_iter(std::iter::empty())?;
+    /// assert!(set.is_empty());
+    ///
+    /// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let set = FrozenSet::try_from_iter(std::iter::once(index))?;
+    /// assert!(!set.is_empty());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -42,6 +81,28 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     /// Tests the membership of a single H3 cell index.
     ///
     /// Returns true if the cell index or one of its ancestor is present.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::CellIndex;
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let cell = CellIndex::try_from(0x8a1fb46622dffff)?;
+    /// let set = FrozenSet::try_from_iter(std::iter::once(cell))?;
+    ///
+    /// // Exact membership works.
+    /// assert_eq!(set.contains(cell), Some(cell));
+    ///
+    /// // Child membership works too.
+    /// let child = CellIndex::try_from(0x8b1fb46622d8fff)?;
+    /// assert_eq!(set.contains(child), Some(cell));
+    ///
+    /// // Even through multiple levels.
+    /// let descendant = CellIndex::try_from(0x8d1fb46622d85bf)?;
+    /// assert_eq!(set.contains(descendant), Some(cell));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn contains(&self, index: CellIndex) -> Option<CellIndex> {
         let fst = self.0.as_fst();
         let key = Key::from(index);
@@ -59,6 +120,21 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
 
     /// Return a lexicographically ordered stream of every descendant (present
     /// in the set) of the given cell index.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let set = FrozenSet::try_from_iter(index.children(Resolution::Six))?;
+    ///
+    /// for cell in set.descendants(index) {
+    ///     println!("{cell}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[allow(clippy::missing_panics_doc)] // Expect don't need to be documented.
     pub fn descendants(
         &self,
@@ -79,6 +155,21 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     }
 
     /// Return a lexicographically ordered stream of all cells in this set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let set = FrozenSet::try_from_iter(index.children(Resolution::Six))?;
+    ///
+    /// for cell in set.iter() {
+    ///     println!("{cell}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn iter(&self) -> FrozenSetIterator<'_> {
         FrozenSetIterator::new(self)
@@ -86,6 +177,25 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
 
     /// Return a lexicographically ordered stream over the subset of keys the
     /// specified range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenSet;
+    /// use std::ops::Bound;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let set = FrozenSet::try_from_iter(index.children(Resolution::Six))?;
+    ///
+    /// let start = Bound::Included(CellIndex::try_from(0x86318d817ffffff)?);
+    /// let end = Bound::Excluded(CellIndex::try_from(0x86318d827ffffff)?);
+    ///
+    /// for cell in set.range((start, end)) {
+    ///     println!("{cell}");
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn range(
         &self,
         range: impl RangeBounds<CellIndex>,
@@ -121,6 +231,17 @@ impl FrozenSet<Vec<u8>> {
     ///
     /// If the iterator does not yield values in lexicographic order, then an
     /// error is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let set = FrozenSet::try_from_iter(index.children(Resolution::Six))?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn try_from_iter(
         iter: impl IntoIterator<Item = CellIndex>,
     ) -> Result<Self, BuildError> {
@@ -130,6 +251,20 @@ impl FrozenSet<Vec<u8>> {
     }
 
     /// Returns the binary contents of this set.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use h3o::{CellIndex, Resolution};
+    /// use h3o_ice::FrozenSet;
+    ///
+    /// let index = CellIndex::try_from(0x85318d83fffffff)?;
+    /// let set = FrozenSet::try_from_iter(index.children(Resolution::Six))?;
+    ///
+    /// # let file_path = "";
+    /// std::fs::write(file_path, set.as_bytes())?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_fst().as_bytes()
@@ -139,6 +274,39 @@ impl FrozenSet<Vec<u8>> {
 // ------------------------------------------------------------------------------
 
 /// A builder for creating a frozen set.
+///
+/// # Example: build in memory
+///
+/// ```
+/// use h3o::{CellIndex, Resolution};
+/// use h3o_ice::FrozenSetBuilder;
+///
+/// let mut builder = FrozenSetBuilder::memory();
+/// builder.insert(CellIndex::try_from(0x85283473fffffff)?)?;
+///
+/// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+/// builder.extend_iter(index.children(Resolution::Six))?;
+///
+/// let set = builder.into_set();
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+/// # Example: stream to file
+///
+/// ```no_run
+/// use h3o::{CellIndex, Resolution};
+/// use h3o_ice::FrozenSetBuilder;
+/// use std::{fs, io};
+///
+/// # let file_path = "";
+/// let mut wtr = io::BufWriter::new(fs::File::create(file_path)?);
+/// let mut builder = FrozenSetBuilder::new(wtr)?;
+///
+/// let index = CellIndex::try_from(0x8a1fb46622dffff)?;
+/// builder.extend_iter(index.children(Resolution::Six))?;
+///
+/// builder.finish()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct FrozenSetBuilder<W>(SetBuilder<W>);
 
 impl<W: io::Write> FrozenSetBuilder<W> {
