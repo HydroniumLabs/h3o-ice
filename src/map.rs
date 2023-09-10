@@ -86,6 +86,27 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
         None
     }
 
+    /// Return a lexicographically ordered stream of every key-value (present
+    /// in the map) that descend from the given cell index.
+    #[allow(clippy::missing_panics_doc)] // Expect don't need to be documented.
+    pub fn descendants(
+        &self,
+        index: CellIndex,
+    ) -> impl Iterator<Item = (CellIndex, u64)> + '_ {
+        index.resolution().succ().map_or_else(
+            // If there is no lower resolution there can't be any descendants.
+            || Either::Left(std::iter::empty()),
+            |resolution| {
+                let mut children = index.children(resolution);
+                let start = children.next().expect("first child");
+                let end = children.last().expect("last child");
+                Either::Right(
+                    self.range((Bound::Included(start), Bound::Included(end))),
+                )
+            },
+        )
+    }
+
     /// Return a lexicographically ordered stream of all key-value pairs in this
     /// map.
     pub fn iter(&self) -> FrozenMapIterator<'_> {
