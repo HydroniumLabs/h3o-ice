@@ -63,7 +63,38 @@ fn lookup(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, build, lookup);
+fn range(c: &mut Criterion) {
+    let dataset = load_dataset("France");
+    let expanded = FrozenSet::try_from_iter(CellIndex::uncompact(
+        dataset,
+        Resolution::Ten,
+    ))
+    .expect("expanded set");
+
+    let cells = [
+        0x8aa304772a2ffff,
+        0x89a30476d1bffff,
+        0x88a304676dfffff,
+        0x87a30460cffffff,
+        0x86a250a27ffffff,
+        0x855f159bfffffff,
+        0x845f155ffffffff,
+        0x833964fffffffff,
+    ]
+    .iter()
+    .map(|&hex| CellIndex::try_from(hex).expect("valid cell index"))
+    .collect::<Vec<_>>();
+
+    let mut group = c.benchmark_group("Range");
+    for (i, cell) in cells.iter().enumerate() {
+        group.bench_with_input(i.to_string(), cell, |b, cell| {
+            b.iter(|| expanded.descendants(*cell).for_each(drop))
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, build, lookup, range);
 criterion_main!(benches);
 
 pub fn load_dataset(name: &str) -> Vec<h3o::CellIndex> {
