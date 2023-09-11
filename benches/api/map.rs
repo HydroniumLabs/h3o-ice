@@ -16,7 +16,7 @@ pub fn build(c: &mut Criterion) {
         .map(|(idx, cell)| (cell, idx as u64))
         .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Map/Build");
+    let mut group = c.benchmark_group("Build/FrozenMap");
     group.bench_function("Expanded", |b| {
         b.iter(|| FrozenMap::try_from_iter(black_box(expanded.iter().copied())))
     });
@@ -59,7 +59,7 @@ pub fn contains_key(c: &mut Criterion) {
     .map(|&hex| CellIndex::try_from(hex).expect("valid cell index"))
     .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Map/ContainsKey");
+    let mut group = c.benchmark_group("ContainsKey/FrozenMap");
     for (i, cell) in cells.iter().enumerate() {
         group.bench_with_input(
             BenchmarkId::new("Expanded", i),
@@ -106,7 +106,7 @@ pub fn get(c: &mut Criterion) {
     .map(|&hex| CellIndex::try_from(hex).expect("valid cell index"))
     .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Map/Get");
+    let mut group = c.benchmark_group("Get/FrozenMap");
     for (i, cell) in cells.iter().enumerate() {
         group.bench_with_input(
             BenchmarkId::new("Expanded", i),
@@ -145,7 +145,7 @@ pub fn range(c: &mut Criterion) {
     .map(|&hex| CellIndex::try_from(hex).expect("valid cell index"))
     .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("Map/Range");
+    let mut group = c.benchmark_group("Range/FrozenMap");
     for (i, cell) in cells.iter().enumerate() {
         group.bench_with_input(i.to_string(), cell, |b, cell| {
             b.iter(|| expanded.descendants(*cell).for_each(drop))
