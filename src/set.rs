@@ -272,8 +272,8 @@ impl FrozenSet<Vec<u8>> {
 }
 
 impl<'a, D: AsRef<[u8]>> IntoIterator for &'a FrozenSet<D> {
-    type Item = CellIndex;
     type IntoIter = FrozenSetIterator<'a>;
+    type Item = CellIndex;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

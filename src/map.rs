@@ -394,8 +394,8 @@ impl FrozenMap<Vec<u8>> {
 }
 
 impl<'a, D: AsRef<[u8]>> IntoIterator for &'a FrozenMap<D> {
-    type Item = (CellIndex, u64);
     type IntoIter = FrozenMapIterator<'a>;
+    type Item = (CellIndex, u64);
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
