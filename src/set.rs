@@ -271,6 +271,15 @@ impl FrozenSet<Vec<u8>> {
     }
 }
 
+impl<'a, D: AsRef<[u8]>> IntoIterator for &'a FrozenSet<D> {
+    type Item = CellIndex;
+    type IntoIter = FrozenSetIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 // ------------------------------------------------------------------------------
 
 /// A builder for creating a frozen set.

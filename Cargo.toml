@@ -1,6 +1,6 @@
 [package]
 name = "h3o-ice"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Sylvain Laperche <sylvain.laperche@gmail.com>"]
 edition = "2021"
 description = "Frozen{Map,Set} for H3 cells, based on finite state transducers."

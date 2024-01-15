@@ -70,7 +70,7 @@ fn load_from_bytes() {
 
     // Data is exactly the same.
     assert_eq!(
-        expected.iter().collect::<Vec<_>>(),
+        expected.into_iter().collect::<Vec<_>>(),
         result.iter().collect::<Vec<_>>()
     );
 }
