@@ -18,6 +18,10 @@ Possible sections are:
 
 - `IntoIterator` implementation for `FrozenMap` and `FrozenSet`
 
+### Changed
+
+- bump deps
+
 ## [0.1.1] - 2024-01-15
 
 ### Changed
