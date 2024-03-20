@@ -14,6 +14,8 @@ Possible sections are:
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.1.2] - 2024-03-20
+
 ### Added
 
 - `IntoIterator` implementation for `FrozenMap` and `FrozenSet`
