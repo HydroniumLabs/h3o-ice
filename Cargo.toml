@@ -1,6 +1,6 @@
 [package]
 name = "h3o-ice"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Sylvain Laperche <sylvain.laperche@gmail.com>"]
 edition = "2021"
 description = "Frozen{Map,Set} for H3 cells, based on finite state transducers."
@@ -30,8 +30,11 @@ fst = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 criterion = { version = "0.5", default-features = false, features = ["html_reports"] }
-thc = { version = "0.1", default-features = false }
+h3o-zip = { version = "0.1", default-features = false }
 
 [[bench]]
 name = "api"
 harness = false
+
+[profile.release]
+lto = "thin"

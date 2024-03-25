@@ -14,6 +14,10 @@ Possible sections are:
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- bump deps (replace `thc` by `h3o-zip`)
+
 ## [0.1.2] - 2024-03-20
 
 ### Added
