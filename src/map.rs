@@ -191,7 +191,10 @@ impl<D: AsRef<[u8]>> FrozenMap<D> {
     /// }
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    #[allow(clippy::missing_panics_doc)] // Expect don't need to be documented.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "expect don't need to be documented"
+    )]
     pub fn descendants(
         &self,
         index: CellIndex,
@@ -652,9 +655,8 @@ impl Iterator for FrozenMapValues<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.values.next().map(|value| {
+        self.values.next().inspect(|_| {
             self.count += 1;
-            value
         })
     }
 

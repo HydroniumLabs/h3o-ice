@@ -135,7 +135,10 @@ impl<D: AsRef<[u8]>> FrozenSet<D> {
     /// }
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    #[allow(clippy::missing_panics_doc)] // Expect don't need to be documented.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "expect don't need to be documented"
+    )]
     pub fn descendants(
         &self,
         index: CellIndex,

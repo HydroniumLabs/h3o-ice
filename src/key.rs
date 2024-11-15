@@ -9,7 +9,7 @@ const SIZE: usize = 16;
 pub struct Key([u8; SIZE]);
 
 impl Key {
-    #[allow(clippy::cast_possible_truncation)] // len is in [0; 15].
+    #[expect(clippy::cast_possible_truncation, reason = "len is in [0; 15]")]
     const fn len(self) -> u8 {
         (15 - (u128::from_be_bytes(self.0).trailing_ones() / 8)) as u8
     }
@@ -36,7 +36,10 @@ impl AsRef<[u8]> for Key {
 }
 
 impl From<Key> for CellIndex {
-    #[allow(clippy::cast_possible_truncation)] // resolution is in [0; 15].
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "resolution is in [0; 15]"
+    )]
     fn from(value: Key) -> Self {
         let res = value.len();
         let key = value.0;
