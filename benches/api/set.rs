@@ -1,9 +1,11 @@
-use std::collections::{BTreeSet, HashSet};
-
 use super::utils::load_dataset;
-use criterion::{black_box, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion};
 use h3o::{CellIndex, Resolution};
 use h3o_ice::FrozenSet;
+use std::{
+    collections::{BTreeSet, HashSet},
+    hint::black_box,
+};
 
 pub fn build(c: &mut Criterion) {
     let compacted = load_dataset("Paris");

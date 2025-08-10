@@ -1,7 +1,8 @@
 use super::utils::load_dataset;
-use criterion::{black_box, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion};
 use h3o::{CellIndex, Resolution};
 use h3o_ice::FrozenMap;
+use std::hint::black_box;
 
 pub fn build(c: &mut Criterion) {
     let cells = load_dataset("Paris");
