@@ -1,6 +1,6 @@
 use crate::{BuildError, Key};
 use either::Either;
-use fst::{set::Stream, IntoStreamer, Set, SetBuilder, Streamer};
+use fst::{IntoStreamer, Set, SetBuilder, Streamer, set::Stream};
 use h3o::CellIndex;
 use std::{
     io,

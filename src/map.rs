@@ -1,9 +1,9 @@
 use crate::{BuildError, Key};
 use either::Either;
 use fst::{
+    IntoStreamer, Map, MapBuilder, Streamer,
     map::{Keys, Stream, Values},
     raw::Output,
-    IntoStreamer, Map, MapBuilder, Streamer,
 };
 use h3o::CellIndex;
 use std::{
